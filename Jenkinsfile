@@ -1,5 +1,10 @@
 pipeline {
-    agent any
+    agent {
+        docker {
+            image 'python:3.11-slim'
+            args '-u root'  // runs container as root so `apt-get` works without sudo
+        }
+    }
 
     environment {
         VENV_DIR = 'venv'
@@ -14,22 +19,11 @@ pipeline {
         }
 
         stage('Install System Dependencies') {
-            environment {
-                SUDO_PASSWORD = credentials('sudo-password')
-            }
             steps {
                 echo '🔧 Installing system packages...'
                 sh '''
-                    if [ -z "$SUDO_PASSWORD" ]; then
-                        echo "❌ SUDO_PASSWORD is empty!"
-                        exit 1
-                    fi
-
-                    echo "$SUDO_PASSWORD" | sudo -S -v || { echo "❌ Invalid sudo password."; exit 1; }
-
-                    echo "$SUDO_PASSWORD" | sudo -S apt-get update -y
-                    echo "$SUDO_PASSWORD" | sudo -S apt-get install -y \
-                        build-essential gcc g++ python3-dev \
+                    apt-get update -y
+                    apt-get install -y build-essential gcc g++ python3-dev \
                         libblas-dev liblapack-dev libatlas-base-dev gfortran
                 '''
             }
@@ -43,9 +37,7 @@ pipeline {
                     . "$VENV_DIR/bin/activate"
 
                     pip install --upgrade pip setuptools wheel
-
                     pip install Flask==2.3.3 Flask-CORS==4.0.0
-
                     pip install --only-binary=all scikit-learn==1.3.0 || pip install scikit-learn==1.3.0
 
                     [ -f requirements.txt ] && pip install -r requirements.txt
@@ -55,7 +47,7 @@ pipeline {
 
         stage('Verify Installation') {
             steps {
-                echo '🔍 Verifying installed packages...'
+                echo '🔍 Verifying packages...'
                 sh '''
                     . "$VENV_DIR/bin/activate"
                     python -c "import flask; print('✅ Flask:', flask.__version__)"
@@ -81,7 +73,7 @@ pipeline {
 
         stage('Run App') {
             steps {
-                echo '🚀 Launching application...'
+                echo '🚀 Launching app...'
                 sh '''
                     . "$VENV_DIR/bin/activate"
 
@@ -98,7 +90,7 @@ pipeline {
                     if ps -p $(cat app.pid) > /dev/null; then
                         echo "✅ App started with PID $(cat app.pid)"
                     else
-                        echo "❌ Failed to start the app. See logs below:"
+                        echo "❌ App failed to start. Logs:"
                         cat app.log
                         exit 1
                     fi
@@ -120,16 +112,17 @@ pipeline {
                 fi
             '''
         }
+
         success {
             echo '✅ Deployment successful!'
             sh '''
                 . "$VENV_DIR/bin/activate"
-                echo "📦 Installed packages:"
                 pip list
             '''
         }
+
         failure {
-            echo '❌ Build failed. Debug logs:'
+            echo '❌ Build failed. Dumping app logs:'
             sh '''
                 [ -f app.log ] && cat app.log || echo "No app.log found."
             '''
