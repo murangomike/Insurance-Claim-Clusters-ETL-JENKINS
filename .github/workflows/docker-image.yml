@@ -1,65 +1,91 @@
-name: CI Pipeline for Insurance Claim Clustering
+name: CI Workflow
 
 on:
   push:
-    branches: [ main ]
+    branches:
+      - main
   pull_request:
-    branches: [ main ]
 
 jobs:
-  build-test-deploy:
+  build-and-test:
     runs-on: ubuntu-latest
+    container:
+      image: python:3.11-slim
+      options: --user root
 
     env:
       VENV_DIR: venv
 
     steps:
-    - name: 🔄 Checkout Repository
-      uses: actions/checkout@v3
+    - name: 🔄 Checkout code
+      uses: actions/checkout@v4
 
-    - name: 🔧 Install System Packages
+    - name: 🔧 Install system dependencies
       run: |
-        sudo apt-get update -y
-        sudo apt-get install -y \
-          build-essential gcc g++ python3-dev \
-          libblas-dev liblapack-dev libatlas-base-dev gfortran
+        apt-get update -y
+        apt-get install -y build-essential gcc g++ python3-dev \
+            libblas-dev liblapack-dev libatlas-base-dev gfortran
 
-    - name: 🐍 Set Up Python and Virtual Environment
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.10'
-
-    - name: 🛠️ Install Python Packages
+    - name: 🐍 Set up Python virtual environment
       run: |
-        python -m venv $VENV_DIR
-        source $VENV_DIR/bin/activate
-
+        python3 -m venv "$VENV_DIR"
+        . "$VENV_DIR/bin/activate"
         pip install --upgrade pip setuptools wheel
         pip install Flask==2.3.3 Flask-CORS==4.0.0
         pip install --only-binary=all scikit-learn==1.3.0 || pip install scikit-learn==1.3.0
+        [ -f requirements.txt ] && pip install -r requirements.txt || echo "No requirements.txt"
 
-        if [ -f requirements.txt ]; then
-          pip install -r requirements.txt
-        fi
-
-    - name: 🔍 Verify Installation
+    - name: 🔍 Verify package installation
       run: |
-        source $VENV_DIR/bin/activate
+        . "$VENV_DIR/bin/activate"
         python -c "import flask; print('✅ Flask:', flask.__version__)"
         python -c "import sklearn; print('✅ scikit-learn:', sklearn.__version__)"
         python -c "import flask_cors; print('✅ Flask-CORS imported successfully')"
 
-    - name: 🧪 Run Tests (if available)
+    - name: 🧪 Run tests if present
+      if: ${{ hashFiles('tests/**') != '' }}
       run: |
-        source $VENV_DIR/bin/activate
-        if [ -d tests ]; then
-          pip install pytest
-          pytest tests/
+        . "$VENV_DIR/bin/activate"
+        pip install pytest
+        pytest tests/
+
+    - name: 🚀 Launch app in background
+      run: |
+        . "$VENV_DIR/bin/activate"
+        if [ ! -f app.py ]; then
+          echo "❌ app.py not found!"
+          ls -la
+          exit 1
+        fi
+        nohup python app.py > app.log 2>&1 &
+        echo $! > app.pid
+        sleep 3
+        if ps -p $(cat app.pid) > /dev/null; then
+          echo "✅ App started with PID $(cat app.pid)"
         else
-          echo "⚠️ No 'tests/' directory found. Skipping tests."
+          echo "❌ App failed to start. Logs:"
+          cat app.log
+          exit 1
         fi
 
-    - name: 🚫 Skip Running App
+    - name: ✅ Deployment successful
+      if: ${{ success() }}
       run: |
-        echo "⚠️ GitHub Actions is not designed to run persistent apps like Flask."
-        echo "To run the app, deploy it to a service (Heroku, EC2, Railway, etc.)"
+        . "$VENV_DIR/bin/activate"
+        pip list
+
+    - name: 🧹 Clean up
+      if: always()
+      run: |
+        if [ -f app.pid ]; then
+          PID=$(cat app.pid)
+          if ps -p $PID > /dev/null; then
+            kill $PID || true
+          fi
+          rm -f app.pid
+        fi
+
+    - name: ❌ Dump logs on failure
+      if: failure()
+      run: |
+        [ -f app.log ] && cat app.log || echo "No app.log found."
