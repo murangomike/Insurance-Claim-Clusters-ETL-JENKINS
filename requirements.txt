@@ -1,6 +1,5 @@
-Flask
-Flask-CORS
-scikit-learn
-pandas
-numpy
+scikit-learn==1.7.0
+numpy>=1.23.0  # Or the version used during model saving
 joblib
+Flask==2.3.3
+Flask-CORS
