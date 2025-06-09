@@ -15,9 +15,9 @@ pipeline {
         stage('Set up Python Environment') {
             steps {
                 sh '''
-                    python3 -m venv $VENV_DIR
-                    source $VENV_DIR/bin/activate
-                    pip install -r requirements.txt
+                python3 -m venv $VENV_DIR
+                . $VENV_DIR/bin/activate
+                pip install -r requirements.txt
                 '''
             }
         }
@@ -28,8 +28,8 @@ pipeline {
             }
             steps {
                 sh '''
-                    source $VENV_DIR/bin/activate
-                    pytest tests/
+                . $VENV_DIR/bin/activate
+                pytest tests/
                 '''
             }
         }
@@ -37,8 +37,8 @@ pipeline {
         stage('Run App') {
             steps {
                 sh '''
-                    source $VENV_DIR/bin/activate
-                    nohup python app.py &
+                . $VENV_DIR/bin/activate
+                nohup python app.py &
                 '''
             }
         }
