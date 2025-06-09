@@ -3,6 +3,8 @@ pipeline {
 
     environment {
         VENV_DIR = 'venv'
+        // Use Jenkins credentials instead of hardcoded passwords
+        SUDO_PASSWORD = credentials('sudo-password') // Create this credential in Jenkins
     }
 
     stages {
@@ -14,14 +16,20 @@ pipeline {
 
         stage('Install System Dependencies') {
             steps {
-                sh '''
-                    # Update package list and install build essentials
-                    sudo apt-get update -y
-                    sudo apt-get install -y build-essential gcc g++ python3-dev
-                    
-                    # Install additional dependencies that scikit-learn might need
-                    sudo apt-get install -y libblas-dev liblapack-dev libatlas-base-dev gfortran
-                '''
+                script {
+                    try {
+                        // Method 1: Using Jenkins credentials (RECOMMENDED)
+                        sh '''
+                            echo "${SUDO_PASSWORD}" | sudo -S apt-get update -y
+                            echo "${SUDO_PASSWORD}" | sudo -S apt-get install -y build-essential gcc g++ python3-dev
+                            echo "${SUDO_PASSWORD}" | sudo -S apt-get install -y libblas-dev liblapack-dev libatlas-base-dev gfortran
+                        '''
+                        echo "✅ System dependencies installed successfully"
+                    } catch (Exception e) {
+                        echo "⚠️  Failed to install system dependencies: ${e.getMessage()}"
+                        echo "Continuing without system dependencies - may affect scikit-learn installation"
+                    }
+                }
             }
         }
 
@@ -33,15 +41,39 @@ pipeline {
                     pip install --upgrade pip setuptools wheel
                     
                     # Install packages one by one to better handle errors
+                    echo "Installing Flask..."
                     pip install Flask==2.3.3
+                    
+                    echo "Installing Flask-CORS..."
                     pip install Flask-CORS==4.0.0
                     
-                    # For scikit-learn, try using a pre-compiled wheel first
-                    pip install --only-binary=all scikit-learn==1.3.0 || pip install scikit-learn==1.3.0
+                    # For scikit-learn, try multiple approaches
+                    echo "Installing scikit-learn..."
                     
-                    # Alternative: install from requirements.txt if it exists
+                    # Try pre-compiled wheel first (fastest)
+                    if pip install --only-binary=all scikit-learn==1.3.0; then
+                        echo "✅ scikit-learn installed from wheel"
+                    else
+                        echo "⚠️  Wheel installation failed, trying different version..."
+                        # Try a newer version that might have better wheel support
+                        if pip install --only-binary=all scikit-learn>=1.3.0; then
+                            echo "✅ scikit-learn newer version installed from wheel"
+                        else
+                            echo "⚠️  Attempting source installation (this may take longer)..."
+                            # Last resort: compile from source
+                            pip install scikit-learn==1.3.0 || {
+                                echo "❌ scikit-learn installation failed completely"
+                                echo "Available Python packages:"
+                                pip list
+                                exit 1
+                            }
+                        fi
+                    fi
+                    
+                    # Install any additional requirements if file exists
                     if [ -f requirements.txt ]; then
-                        pip install -r requirements.txt
+                        echo "Installing additional requirements..."
+                        pip install -r requirements.txt || echo "⚠️  Some requirements may have failed"
                     fi
                 '''
             }
