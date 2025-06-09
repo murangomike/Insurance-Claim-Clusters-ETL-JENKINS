@@ -15,7 +15,7 @@ pipeline {
 
         stage('Install System Dependencies') {
             environment {
-                SUDO_PASSWORD = '@2021'
+                SUDO_PASSWORD = @2021
             }
             steps {
                 echo '🔧 Installing system packages...'
