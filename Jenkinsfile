@@ -14,12 +14,19 @@ pipeline {
         }
 
         stage('Install System Dependencies') {
-            environment {
-                SUDO_PASSWORD = @2021
-            }
+        environment {
+            SUDO_PASSWORD = credentials('sudo-password')
+        }
             steps {
                 echo '🔧 Installing system packages...'
                 sh '''
+                    if [ -z "$SUDO_PASSWORD" ]; then
+                        echo "❌ SUDO_PASSWORD is empty!"
+                        exit 1
+                    fi
+        
+                    echo "$SUDO_PASSWORD" | sudo -S -v  # just validate password first
+        
                     echo "$SUDO_PASSWORD" | sudo -S apt-get update -y
                     echo "$SUDO_PASSWORD" | sudo -S apt-get install -y \
                         build-essential gcc g++ python3-dev \
