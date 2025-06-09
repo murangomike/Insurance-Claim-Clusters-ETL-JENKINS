@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Insurance Risk Predictor</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+            color: white;
+            padding: 40px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            font-weight: 300;
+        }
+
+        .header p {
+            font-size: 1.2rem;
+            opacity: 0.9;
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 40px;
+            padding: 40px;
+        }
+
+        .form-section {
+            background: #f8f9fa;
+            padding: 30px;
+            border-radius: 15px;
+            border: 1px solid #e9ecef;
+        }
+
+        .form-section h2 {
+            color: #2c3e50;
+            margin-bottom: 25px;
+            font-size: 1.5rem;
+            border-bottom: 3px solid #3498db;
+            padding-bottom: 10px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #34495e;
+        }
+
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: all 0.3s ease;
+            background: white;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #3498db;
+            box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+        }
+
+        .predict-btn {
+            background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+            color: white;
+            padding: 15px 40px;
+            border: none;
+            border-radius: 50px;
+            font-size: 18px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            width: 100%;
+            margin-top: 20px;
+        }
+
+        .predict-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(52, 152, 219, 0.3);
+        }
+
+        .predict-btn:disabled {
+            background: #bdc3c7;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .results-section {
+            background: #f8f9fa;
+            padding: 30px;
+            border-radius: 15px;
+            border: 1px solid #e9ecef;
+            min-height: 400px;
+        }
+
+        .results-section h2 {
+            color: #2c3e50;
+            margin-bottom: 25px;
+            font-size: 1.5rem;
+            border-bottom: 3px solid #e74c3c;
+            padding-bottom: 10px;
+        }
+
+        .result-card {
+            background: white;
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+            border-left: 5px solid #e74c3c;
+        }
+
+        .result-card.high-risk {
+            border-left-color: #e74c3c;
+        }
+
+        .result-card.low-risk {
+            border-left-color: #27ae60;
+        }
+
+        .risk-badge {
+            display: inline-block;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-weight: 600;
+            font-size: 14px;
+            margin-bottom: 10px;
+        }
+
+        .risk-badge.high-risk {
+            background: #fee;
+            color: #e74c3c;
+        }
+
+        .risk-badge.low-risk {
+            background: #efe;
+            color: #27ae60;
+        }
+
+        .pricing-info {
+            background: #f1f2f6;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+        }
+
+        .characteristics {
+            margin-top: 15px;
+        }
+
+        .characteristics ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        .characteristics li {
+            padding: 5px 0;
+            padding-left: 20px;
+            position: relative;
+        }
+
+        .characteristics li:before {
+            content: "✓";
+            position: absolute;
+            left: 0;
+            color: #27ae60;
+            font-weight: bold;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #7f8c8d;
+        }
+
+        .loading:after {
+            content: "";
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 2px solid #bdc3c7;
+            border-radius: 50%;
+            border-top-color: #3498db;
+            animation: spin 1s ease-in-out infinite;
+            margin-left: 10px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .error {
+            background: #fee;
+            color: #e74c3c;
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #f5c6cb;
+        }
+
+        @media (max-width: 768px) {
+            .main-content {
+                grid-template-columns: 1fr;
+                gap: 20px;
+                padding: 20px;
+            }
+            
+            .header h1 {
+                font-size: 2rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Insurance Risk Predictor</h1>
+            <p>AI-powered customer risk assessment and pricing recommendation</p>
+        </div>
+
+        <div class="main-content">
+            <div class="form-section">
+                <h2>Customer Information</h2>
+                <form id="prediction-form">
+                    <div class="form-group">
+                        <label for="age">Age</label>
+                        <input type="number" id="age" name="age" required min="18" max="100">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="gender">Gender</label>
+                        <select id="gender" name="gender" required>
+                            <option value="">Select Gender</option>
+                            <option value="Male">Male</option>
+                            <option value="Female">Female</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="driving_experience">Driving Experience (years)</label>
+                        <input type="number" id="driving_experience" name="driving_experience" required min="0" max="50">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="car_model">Car Model</label>
+                        <select id="car_model" name="car_model" required>
+                            <option value="">Select Car Model</option>
+                            <option value="Toyota">Toyota</option>
+                            <option value="Honda">Honda</option>
+                            <option value="Ford">Ford</option>
+                            <option value="BMW">BMW</option>
+                            <option value="Mercedes">Mercedes</option>
+                            <option value="Audi">Audi</option>
+                            <option value="Volkswagen">Volkswagen</option>
+                            <option value="Nissan">Nissan</option>
+                            <option value="Hyundai">Hyundai</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="year_of_manufacture">Year of Manufacture</label>
+                        <input type="number" id="year_of_manufacture" name="year_of_manufacture" required min="1990" max="2025">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="car_usage">Car Usage</label>
+                        <select id="car_usage" name="car_usage" required>
+                            <option value="">Select Usage</option>
+                            <option value="Personal">Personal</option>
+                            <option value="Commercial">Commercial</option>
+                            <option value="Business">Business</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="annual_mileage">Annual Mileage (km)</label>
+                        <input type="number" id="annual_mileage" name="annual_mileage" required min="0" max="100000">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="location">Location</label>
+                        <select id="location" name="location" required>
+                            <option value="">Select Location</option>
+                            <option value="Urban">Urban</option>
+                            <option value="Suburban">Suburban</option>
+                            <option value="Rural">Rural</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="has_caused_accident">Has Caused Accident</label>
+                        <select id="has_caused_accident" name="has_caused_accident" required>
+                            <option value="">Select</option>
+                            <option value="0">No</option>
+                            <option value="1">Yes</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="num_of_accidents">Number of Accidents</label>
+                        <input type="number" id="num_of_accidents" name="num_of_accidents" required min="0" max="20">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="vehicle_value">Vehicle Value ($)</label>
+                        <input type="number" id="vehicle_value" name="vehicle_value" required min="1000" max="200000">
+                    </div>
+
+                    <button type="submit" class="predict-btn">Predict Risk Level</button>
+                </form>
+            </div>
+
+            <div class="results-section">
+                <h2>Prediction Results</h2>
+                <div id="results-container">
+                    <div class="loading" style="display: none;">
+                        <p>Analyzing customer data...</p>
+                    </div>
+                    <div id="results-content">
+                        <p style="text-align: center; color: #7f8c8d; padding: 40px;">
+                            Fill out the form and click "Predict Risk Level" to see the results.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('prediction-form').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(e.target);
+            const data = Object.fromEntries(formData.entries());
+            
+            // Show loading
+            document.querySelector('.loading').style.display = 'block';
+            document.getElementById('results-content').innerHTML = '';
+            
+            // Disable button
+            const submitBtn = document.querySelector('.predict-btn');
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Predicting...';
+            
+            try {
+                const response = await fetch('/predict', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(data)
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    displayResults(result);
+                } else {
+                    displayError(result.error || 'An error occurred');
+                }
+                
+            } catch (error) {
+                displayError('Network error: ' + error.message);
+            }
+            
+            // Hide loading and restore button
+            document.querySelector('.loading').style.display = 'none';
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Predict Risk Level';
+        });
+        
+        function displayResults(result) {
+            const riskClass = result.risk_level === 'High Risk' ? 'high-risk' : 'low-risk';
+            
+            const html = `
+                <div class="result-card ${riskClass}">
+                    <div class="risk-badge ${riskClass}">
+                        ${result.risk_level}
+                    </div>
+                    <h3>Cluster ${result.cluster}</h3>
+                    <p>${result.description}</p>
+                    
+                    <div class="pricing-info">
+                        <strong>Recommended Pricing: ${result.pricing}</strong>
+                    </div>
+                    
+                    <div class="characteristics">
+                        <h4>Key Characteristics:</h4>
+                        <ul>
+                            ${result.characteristics.map(char => `<li>${char}</li>`).join('')}
+                        </ul>
+                    </div>
+                </div>
+            `;
+            
+            document.getElementById('results-content').innerHTML = html;
+        }
+        
+        function displayError(message) {
+            const html = `
+                <div class="error">
+                    <strong>Error:</strong> ${message}
+                </div>
+            `;
+            
+            document.getElementById('results-content').innerHTML = html;
+        }
+    </script>
+</body>
+</html>
