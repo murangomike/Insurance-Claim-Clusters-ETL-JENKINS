@@ -14,11 +14,14 @@ pipeline {
         }
 
         stage('Install System Dependencies') {
+            environment {
+                SUDO_PASSWORD = credentials('sudo-password')
+            }
             steps {
                 echo '🔧 Installing system packages...'
                 sh '''
-                    sudo apt-get update -y
-                    sudo apt-get install -y \
+                    echo "$SUDO_PASSWORD" | sudo -S apt-get update -y
+                    echo "$SUDO_PASSWORD" | sudo -S apt-get install -y \
                         build-essential gcc g++ python3-dev \
                         libblas-dev liblapack-dev libatlas-base-dev gfortran
                 '''
@@ -31,16 +34,13 @@ pipeline {
                 sh '''
                     python3 -m venv $VENV_DIR
                     . $VENV_DIR/bin/activate
-                    
+
                     pip install --upgrade pip setuptools wheel
 
-                    # Install essential packages individually
                     pip install Flask==2.3.3 Flask-CORS==4.0.0
-                    
-                    # Handle scikit-learn installation robustly
+
                     pip install --only-binary=all scikit-learn==1.3.0 || pip install scikit-learn==1.3.0
 
-                    # Install additional dependencies from requirements.txt if available
                     [ -f requirements.txt ] && pip install -r requirements.txt
                 '''
             }
