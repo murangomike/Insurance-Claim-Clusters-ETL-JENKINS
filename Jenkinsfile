@@ -9,14 +9,14 @@ pipeline {
         stage('Checkout Code') {
             steps {
                 echo '🔄 Cloning repository...'
-                git 'https://github.com/murangomike/Insurance-Claim-Clusters-ETL-JENKINS.git'
+                git url: 'https://github.com/murangomike/Insurance-Claim-Clusters-ETL-JENKINS.git'
             }
         }
 
         stage('Install System Dependencies') {
-        environment {
-            SUDO_PASSWORD = credentials('sudo-password')
-        }
+            environment {
+                SUDO_PASSWORD = credentials('sudo-password')
+            }
             steps {
                 echo '🔧 Installing system packages...'
                 sh '''
@@ -24,9 +24,9 @@ pipeline {
                         echo "❌ SUDO_PASSWORD is empty!"
                         exit 1
                     fi
-        
-                    echo "$SUDO_PASSWORD" | sudo -S -v  # just validate password first
-        
+
+                    echo "$SUDO_PASSWORD" | sudo -S -v || { echo "❌ Invalid sudo password."; exit 1; }
+
                     echo "$SUDO_PASSWORD" | sudo -S apt-get update -y
                     echo "$SUDO_PASSWORD" | sudo -S apt-get install -y \
                         build-essential gcc g++ python3-dev \
@@ -39,8 +39,8 @@ pipeline {
             steps {
                 echo '🐍 Setting up Python virtual environment...'
                 sh '''
-                    python3 -m venv $VENV_DIR
-                    . $VENV_DIR/bin/activate
+                    python3 -m venv "$VENV_DIR"
+                    . "$VENV_DIR/bin/activate"
 
                     pip install --upgrade pip setuptools wheel
 
@@ -55,9 +55,9 @@ pipeline {
 
         stage('Verify Installation') {
             steps {
-                echo '🔍 Verifying package installation...'
+                echo '🔍 Verifying installed packages...'
                 sh '''
-                    . $VENV_DIR/bin/activate
+                    . "$VENV_DIR/bin/activate"
                     python -c "import flask; print('✅ Flask:', flask.__version__)"
                     python -c "import sklearn; print('✅ scikit-learn:', sklearn.__version__)"
                     python -c "import flask_cors; print('✅ Flask-CORS imported successfully')"
@@ -67,15 +67,13 @@ pipeline {
 
         stage('Run Tests') {
             when {
-                expression { fileExists('tests') }
+                expression { return fileExists('tests') }
             }
             steps {
                 echo '🧪 Running tests...'
                 sh '''
-                    . $VENV_DIR/bin/activate
-                    if ! command -v pytest > /dev/null; then
-                        pip install pytest
-                    fi
+                    . "$VENV_DIR/bin/activate"
+                    command -v pytest >/dev/null || pip install pytest
                     pytest tests/
                 '''
             }
@@ -85,7 +83,7 @@ pipeline {
             steps {
                 echo '🚀 Launching application...'
                 sh '''
-                    . $VENV_DIR/bin/activate
+                    . "$VENV_DIR/bin/activate"
 
                     if [ ! -f app.py ]; then
                         echo "❌ app.py not found!"
@@ -125,7 +123,7 @@ pipeline {
         success {
             echo '✅ Deployment successful!'
             sh '''
-                . $VENV_DIR/bin/activate
+                . "$VENV_DIR/bin/activate"
                 echo "📦 Installed packages:"
                 pip list
             '''
