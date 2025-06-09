@@ -15,9 +15,10 @@ pipeline {
         stage('Set up Python Environment') {
             steps {
                 sh '''
-                python3 -m venv $VENV_DIR
-                . $VENV_DIR/bin/activate
-                pip install -r requirements.txt
+                    python3 -m venv $VENV_DIR
+                    . $VENV_DIR/bin/activate
+                    pip install --upgrade pip
+                    pip install -r requirements.txt
                 '''
             }
         }
@@ -28,8 +29,8 @@ pipeline {
             }
             steps {
                 sh '''
-                . $VENV_DIR/bin/activate
-                pytest tests/
+                    . $VENV_DIR/bin/activate
+                    pytest tests/
                 '''
             }
         }
@@ -37,8 +38,8 @@ pipeline {
         stage('Run App') {
             steps {
                 sh '''
-                . $VENV_DIR/bin/activate
-                nohup python app.py &
+                    . $VENV_DIR/bin/activate
+                    nohup python app.py > app.log 2>&1 &
                 '''
             }
         }
@@ -50,6 +51,9 @@ pipeline {
         }
         failure {
             echo '❌ Something failed.'
+        }
+        always {
+            sh 'ps aux | grep python || true'
         }
     }
 }
