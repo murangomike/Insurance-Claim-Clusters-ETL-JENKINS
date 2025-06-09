@@ -1,5 +1,10 @@
 pipeline {
-    agent any
+    agent {
+        docker {
+            image 'python:3.11-slim'
+            args '-u root'  // runs container as root so `apt-get` works without sudo
+        }
+    }
 
     environment {
         VENV_DIR = 'venv'
@@ -9,20 +14,16 @@ pipeline {
         stage('Checkout Code') {
             steps {
                 echo '🔄 Cloning repository...'
-                git 'https://github.com/murangomike/Insurance-Claim-Clusters-ETL-JENKINS.git'
+                git url: 'https://github.com/murangomike/Insurance-Claim-Clusters-ETL-JENKINS.git'
             }
         }
 
         stage('Install System Dependencies') {
-            environment {
-                SUDO_PASSWORD = '@2021'
-            }
             steps {
                 echo '🔧 Installing system packages...'
                 sh '''
-                    echo "$SUDO_PASSWORD" | sudo -S apt-get update -y
-                    echo "$SUDO_PASSWORD" | sudo -S apt-get install -y \
-                        build-essential gcc g++ python3-dev \
+                    apt-get update -y
+                    apt-get install -y build-essential gcc g++ python3-dev \
                         libblas-dev liblapack-dev libatlas-base-dev gfortran
                 '''
             }
@@ -32,13 +33,11 @@ pipeline {
             steps {
                 echo '🐍 Setting up Python virtual environment...'
                 sh '''
-                    python3 -m venv $VENV_DIR
-                    . $VENV_DIR/bin/activate
+                    python3 -m venv "$VENV_DIR"
+                    . "$VENV_DIR/bin/activate"
 
                     pip install --upgrade pip setuptools wheel
-
                     pip install Flask==2.3.3 Flask-CORS==4.0.0
-
                     pip install --only-binary=all scikit-learn==1.3.0 || pip install scikit-learn==1.3.0
 
                     [ -f requirements.txt ] && pip install -r requirements.txt
@@ -48,9 +47,9 @@ pipeline {
 
         stage('Verify Installation') {
             steps {
-                echo '🔍 Verifying package installation...'
+                echo '🔍 Verifying packages...'
                 sh '''
-                    . $VENV_DIR/bin/activate
+                    . "$VENV_DIR/bin/activate"
                     python -c "import flask; print('✅ Flask:', flask.__version__)"
                     python -c "import sklearn; print('✅ scikit-learn:', sklearn.__version__)"
                     python -c "import flask_cors; print('✅ Flask-CORS imported successfully')"
@@ -60,15 +59,13 @@ pipeline {
 
         stage('Run Tests') {
             when {
-                expression { fileExists('tests') }
+                expression { return fileExists('tests') }
             }
             steps {
                 echo '🧪 Running tests...'
                 sh '''
-                    . $VENV_DIR/bin/activate
-                    if ! command -v pytest > /dev/null; then
-                        pip install pytest
-                    fi
+                    . "$VENV_DIR/bin/activate"
+                    command -v pytest >/dev/null || pip install pytest
                     pytest tests/
                 '''
             }
@@ -76,9 +73,9 @@ pipeline {
 
         stage('Run App') {
             steps {
-                echo '🚀 Launching application...'
+                echo '🚀 Launching app...'
                 sh '''
-                    . $VENV_DIR/bin/activate
+                    . "$VENV_DIR/bin/activate"
 
                     if [ ! -f app.py ]; then
                         echo "❌ app.py not found!"
@@ -93,7 +90,7 @@ pipeline {
                     if ps -p $(cat app.pid) > /dev/null; then
                         echo "✅ App started with PID $(cat app.pid)"
                     else
-                        echo "❌ Failed to start the app. See logs below:"
+                        echo "❌ App failed to start. Logs:"
                         cat app.log
                         exit 1
                     fi
@@ -115,16 +112,17 @@ pipeline {
                 fi
             '''
         }
+
         success {
             echo '✅ Deployment successful!'
             sh '''
-                . $VENV_DIR/bin/activate
-                echo "📦 Installed packages:"
+                . "$VENV_DIR/bin/activate"
                 pip list
             '''
         }
+
         failure {
-            echo '❌ Build failed. Debug logs:'
+            echo '❌ Build failed. Dumping app logs:'
             sh '''
                 [ -f app.log ] && cat app.log || echo "No app.log found."
             '''
